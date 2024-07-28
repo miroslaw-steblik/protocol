@@ -1,31 +1,41 @@
-# INITIAL SETUP
+# Iintial Setup
     python3 -m venv venv
     source venv/bin/activate
     pip install -e .
 
-# FAST PANDA
+# Fast Pandas
 
 > DO THIS:
 1. Use Vectorized Operations:
-`df['new_column'] = df['existing_column'] * 2  # Vectorized operation`
+```
+df['new_column'] = df['existing_column'] * 2  # Vectorized operation
+```
 
 2. Leverage Built-in Functions: - apply(), transform(), groupby()
 
-`df['mean_value'] = df.groupby('group_column')['value_column'].transform('mean')`
+```
+df['mean_value'] = df.groupby('group_column')['value_column'].transform('mean')
+```
 
 3. Use Efficient Data Types:
 
-`df['category_column'] = df['category_column'].astype('category')`
+```
+df['category_column'] = df['category_column'].astype('category')
+```
 
 4. Use Single Indexing:
 
-`df.loc[df['column'] > 0, 'new_column'] = 1`
+```
+df.loc[df['column'] > 0, 'new_column'] = 1
+```
 
 5. Use inplace Parameter:
 
-`df.dropna(inplace=True)`
+```
+df.dropna(inplace=True)
+```
 
-6. Batch Processing:
+6. Batch Processing
 
 
 > DONT DO THIS:

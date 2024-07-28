@@ -1,15 +1,21 @@
 """
 PLAN:
+    0. Configuration
+        - dictionary for column mapping
+        - variable for column names
     1. Load data
-    2. Data preprocessing
-        - rename column names
-        - rename questions into categories
+    2. Data cleaning
+        - prepare columns
+        - remove unnecessary stuff
     3. Melt dataframe
     4. Check for outliers
         - adjust outliers to the mean
     5. Pivot dataframe
+        - rename columns from dictionary
     6. Data analysis
     7. Output formatting
+    8. Main function
+    8. <Optional> Profiling
 """
 
 import pandas as pd
@@ -23,8 +29,6 @@ import time
 from datetime import datetime
 
 logs_folder = '/home/miros/DataOps/developer/white/protocol/logs/pstats/'
-
-
 
 data_file = '/home/miros/DataOps/developer/white/protocol/data/raw_data.json'
 clean_file = '/home/miros/DataOps/developer/white/protocol/data/clean_data.json'
@@ -73,7 +77,6 @@ def load_data(data_file):
 
 
 # ----------------- CLEAN DATA ----------------- #
-
 def clean_data(df):
     # Create a mapping from response columns to the first row values
     first_row = df.iloc[0]
@@ -110,8 +113,6 @@ def melt_dataframe(df):
     return df_melted
 
 #---------------------------- OUTLIERS -------------------#
-
-
 def find_outliers(df, threshold=1.75):
     def z_score(x):
         return (x - x.mean()) / x.std()
@@ -131,9 +132,8 @@ def pivot_dataframe(df):
 
 
 # ------------------------ DATA ANALYSIS ------------------ #
-# assuming all figures are in million, divide by 1000 to convert to million
 def data_analysis(df):
-    df[revenue] = df[revenue] / 1000
+    df[revenue] = df[revenue] / 1000 # assuming all figures are in million, divide by 1000 to convert to million
     sum_columns = ['AUM_FI', 'AUM_HF', 'AUM_MA', 'AUM_Other', 'AUM_PD', 'AUM_PE', 'AUM_PubEq']
     df[aum_calculated] = sum(df[col] for col in sum_columns)
     df['AUM_Check'] = np.where(df[aum_calculated] == df[aum_original], 'True', 'False')
@@ -145,7 +145,6 @@ def data_analysis(df):
 
 
 # ------------------------ OUTPUT ------------------ #
-
 def format_output(df):
     latest_year = df['Year'].max()
     summary_table = df[df['Year'] == latest_year].reset_index(drop=True)
