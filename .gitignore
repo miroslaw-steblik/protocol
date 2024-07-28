@@ -1,0 +1,6 @@
+logs/
+venv/
+Manifest.toml
+Project.toml
+protocol.egg-info/
+.vscode/
