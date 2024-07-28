@@ -4,7 +4,7 @@ PLAN:
         - dictionary for column mapping
         - variable for column names
     1. Load data
-    2. Data cleaning
+    2. Process data
         - prepare columns
         - remove unnecessary stuff
     3. Melt dataframe
@@ -53,9 +53,8 @@ aum_4y_cagr = 'AUM_4Y_CAGR'
 revenue_4y_cagr = 'Revenue_4Y_CAGR'
 aum_check = 'AUM_Check'
 revenue = 'Revenue_Millions_GBP'
-category = 'Category'
-subcategory = 'Subcategory'
 company = 'Company'
+value = 'Value'
 year = 'Year'
 metric = 'Metric'
 period = 'Period'
@@ -76,11 +75,11 @@ def load_data(data_file):
     return df
 
 
-# ----------------- CLEAN DATA ----------------- #
-def clean_data(df):
+# ----------------- PROCESS DATA ----------------- #
+def process_data(df):
     # Create a mapping from response columns to the first row values
     first_row = df.iloc[0]
-    column_mapping = {f'Response {i+1}': first_row[f'Response {i+1}'] for i in range(5)}
+    column_mapping = {col: first_row[col] for col in df.columns if 'Response' in col}
     df.rename(columns=column_mapping, inplace=True)
     df.drop(df.index[0], inplace=True)
 
@@ -88,28 +87,23 @@ def clean_data(df):
     df[year] = pd.to_datetime(df['Question level 2'].str.extract('(\d{4})')[0], format='%Y').dt.year
     df[period] = df['Question level 2'].str.extract('([A-Za-z\s]+)')[0].str.strip().fillna('EoY').str.upper()
 
-    # Reset the index and drop unnecessary columns
-    df = df[df['Question level 2'] != 'EoY 2024'].reset_index(drop=True)
-    df.drop(columns=['Project', 'Question level 2'], inplace=True)
-    df.rename(columns={'Question level 1': 'Category', 'Question level 3': 'Subcategory'}, inplace=True)
-
     # Replace category values
     replacements = {
         'What was your AuM split over the last 5 years?': 'AUM Split',
         'What was your revenue in the last 5 years?': 'Revenue',
         'What was your total AuM in the last 5 years?': 'AUM'
     }
-    df[category] = df[category].replace(replacements)
+    df['Question level 1'] = df['Question level 1'].replace(replacements)
+    df = df[df['Question level 2'] != 'EoY 2024'].reset_index(drop=True)
     df[company_columns] = df[company_columns].apply(pd.to_numeric, errors='coerce')
-    df[metric] = df[category] + "_" + df[subcategory]
-    df.drop(columns=['Category', 'Subcategory', 'Period'], inplace=True)
+    df[metric] = df['Question level 1'] + "_" + df['Question level 3']
+    df.drop(columns=['Period','Project','Question level 2','Question level 1','Question level 3'], inplace=True)
     return df
 
 
 #------------------- MELT THE DATAFRAME -------------------#
 def melt_dataframe(df):
-    df_melted = pd.melt(df, id_vars=['Metric', 'Year'], var_name='Company', value_name='Value')
-
+    df_melted = pd.melt(df, id_vars=[metric, year], var_name=company, value_name=value)
     return df_melted
 
 #---------------------------- OUTLIERS -------------------#
@@ -117,19 +111,18 @@ def find_outliers(df, threshold=1.75):
     def z_score(x):
         return (x - x.mean()) / x.std()
 
-    df = df.dropna(subset=['Value']).reset_index(drop=True)
-    df['Z-Score'] = df.groupby(['Company', 'Metric'])['Value'].transform(z_score)
+    df = df.dropna(subset=[value]).reset_index(drop=True)
+    df['Z-Score'] = df.groupby([company, metric])[value].transform(z_score)
     df['Outlier'] = df['Z-Score'].abs() > threshold
-    non_outlier_means = df.groupby(['Company', 'Metric'])['Value'].transform(lambda x: x[~df.loc[x.index, 'Outlier']].mean())
-    df['Adjusted_Value'] = np.where(df['Outlier'], non_outlier_means, df['Value'])
+    non_outlier_means = df.groupby([company, metric])[value].transform(lambda x: x[~df.loc[x.index, 'Outlier']].mean())
+    df['Adjusted_Value'] = np.where(df['Outlier'], non_outlier_means, df[value])
     return df
 
 # ------------------------ PIVOT DATAFRAME ------------------ #
 def pivot_dataframe(df):
-    df_pivot = df.pivot(index=['Company', 'Year'], columns='Metric', values='Adjusted_Value').reset_index()
+    df_pivot = df.pivot(index=[company, year], columns=metric, values='Adjusted_Value').reset_index()
     df_pivot = df_pivot.rename(columns=pivot_columns_dict)
     return df_pivot
-
 
 # ------------------------ DATA ANALYSIS ------------------ #
 def data_analysis(df):
@@ -142,7 +135,6 @@ def data_analysis(df):
     df[aum_4y_cagr] = ((df[aum_calculated] / df[aum_calculated].shift(4)) ** (1/4)) - 1
     df[revenue_4y_cagr] = ((df[revenue] / df[revenue].shift(4)) ** (1/4)) - 1
     return df
-
 
 # ------------------------ OUTPUT ------------------ #
 def format_output(df):
@@ -160,11 +152,10 @@ def format_output(df):
     print("\nSummary Table:")
     print(tabulate(summary_table, headers='keys', tablefmt='psql'))
 
-
-
+# ------------------------ MAIN FUNCTION ------------------ #
 def process():
     df = load_data(data_file)
-    df = clean_data(df)
+    df = process_data(df)
     df_melted = melt_dataframe(df)
     df_outliers = find_outliers(df_melted)
     df_pivot = pivot_dataframe(df_outliers)
